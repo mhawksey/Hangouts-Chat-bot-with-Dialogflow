@@ -135,32 +135,24 @@ function onMessage(event) {
   // detect intent of the message
   var intent = detectMessageIntent(userMessage);
   var intentParams = intent.queryResult.parameters;
-
-  // prepare widget parameters with intent data so it can be used 
-  // with onClick events
-  var buttonParams = Object.keys(intentParams).map(function (key) {
-      return {
-        key: key,
-        value: isObject(intentParams[key]) ? JSON.stringify(intentParams[key]) : intentParams[key]
-      }
-  });
   
   // if we have a reason show the Calendar and Gmail Out-of-Office buttons 
   if (intentParams.reason) {
     var reason = intentParams.reason;
-    var widgets = createAddSetWidget(name, reason, buttonParams);
+    var widgets = createAddSetWidget(name, reason, intentParams);
   } else {
     // no reason detected so prompt user to select using agent prompt
     var fulfillmentMessages = intent.queryResult.fulfillmentMessages[0].text.text[0];
     // build a set of buttons based on REASON
-    var reasonButtonObject = Object.keys(REASON).map(function (key) {
+    var reasonButtonObject = Object.keys(REASON).map(function (idx) {
+      intentParams.reason = idx;
       return {
         textButton: {
-          text: 'Set ' + REASON[key],
+          text: 'Set ' + REASON[idx],
           onClick: {
             action: {
-              actionMethodName: key + 'ReasonCall',
-              parameters: buttonParams
+              actionMethodName: 'reasonButtons',
+              parameters: [{key: 'entities', value: JSON.stringify(intentParams)}]
             }
           }
         }
@@ -180,10 +172,10 @@ function onMessage(event) {
  * Create a card for setting events in Gmail or Calendar.
  * @param {string} name of the person adding the event
  * @param {string} reason of the event
- * @param {object} buttonParams that contain any Dialogflow detected entities
+ * @param {object} intentParams that contain any Dialogflow detected entities
  * @return {object} JSON-formatted response
  */
-function createAddSetWidget(name, reason, buttonParams) {
+function createAddSetWidget(name, reason, intentParams) {
   // if we have a reason adjust the image in the
   // header sent in response
   var pretty_reason = '';
@@ -211,8 +203,8 @@ function createAddSetWidget(name, reason, buttonParams) {
       break;
   }
   HEADER.header.subtitle = 'Log your ' + pretty_reason;
-  var obj = convertKeyValuesToObject(buttonParams);
-  var dates = calcDateObject(obj);
+  
+  var dates = calcDateObject(intentParams);
   var widgets = [{
     textParagraph: {
       text: 'Hello, ' + name + '.<br/>It looks like you want to add ' + pretty_reason + ' ' + dateRangeToString(dates) + '?'
@@ -224,7 +216,7 @@ function createAddSetWidget(name, reason, buttonParams) {
         onClick: {
           action: {
             actionMethodName: 'turnOnAutoResponder',
-            parameters: buttonParams
+            parameters: [{key: 'entities', value: JSON.stringify(intentParams)}]
           }
         }
       }
@@ -234,35 +226,13 @@ function createAddSetWidget(name, reason, buttonParams) {
         onClick: {
           action: {
             actionMethodName: 'blockOutCalendar',
-            parameters: buttonParams
+            parameters: [{key: 'entities', value: JSON.stringify(intentParams)}]
           }
         }
       }
     }]
   }];
   return widgets
-}
-
-/**
- * Returns a reformatted object array.
- * @param {array} arr of {key:,value:} objects
- * @return {object}
- */
-function convertKeyValuesToObject(arr){
-  var obj = {};
-  arr.map(function(o){
-   obj[o.key] = o.value;
-  });
-  return obj;
-}
-
-/**
- * Test if object is an object.
- * @param {object} obj to test if its an object
- * @return {Boolean} true if it is an object
- */
-function isObject(obj) {
-  return obj === Object(obj);
 }
 
 /**
@@ -288,7 +258,6 @@ function calcDateObject(entities){
   var dates = {};
   // easy one - entities for date period
   if (entities['date-period']){
-    entities['date-period'] = JSON.parse(entities['date-period']);
     dates.startDate = new Date(entities['date-period'].startDate);
     dates.endDate = new Date(entities['date-period'].endDate);
     return dates
@@ -347,19 +316,16 @@ function calcDateObject(entities){
  */
 function onCardClick(event) {
   console.info(event);
+  var intentParams = JSON.parse(event.action.parameters[0].value)
   var message = "I'm sorry; I'm not sure which button you clicked.";
   if (event.action.actionMethodName == 'turnOnAutoResponder') {
-    return { text: turnOnAutoResponder(event.action.parameters)};
+    return { text: turnOnAutoResponder(intentParams)};
   } else if (event.action.actionMethodName == 'blockOutCalendar') {
-    return { text: blockOutCalendar(event.action.parameters)};
-  } else if (event.action.actionMethodName.slice(-10) == 'ReasonCall') {
+    return { text: blockOutCalendar(intentParams)};
+  } else if (event.action.actionMethodName == 'reasonButtons') {
     // handling are 'reason' buttons
-    // remove 'ReasonCall' from actionMethodName for the reason
-    var reason = event.action.actionMethodName.slice(0, -10);
-    var buttonParams = event.action.parameters;
-    // push the reason from 1st interaction for the createAddSetWidget
-    buttonParams.push({key: 'reason', value: reason });
-    var widgets = createAddSetWidget(event.user.displayName, reason, buttonParams);
+    var reason = intentParams.reason;
+    var widgets = createAddSetWidget(event.user.displayName, reason, intentParams);
     return createCardResponse(widgets);
   }
   return { text: message }
@@ -368,37 +334,37 @@ function onCardClick(event) {
 
 /**
  * Turns on the user's vacation response for today in Gmail.
- * @param {object} entities detected by Dialogflow agent
+ * @param {object} intentParams detected by Dialogflow agent
+ * @return {string} message
  */
-function turnOnAutoResponder(entities) {
-  var obj = convertKeyValuesToObject(entities);
-  var dates = calcDateObject(obj);
+function turnOnAutoResponder(intentParams) {
+  var dates = calcDateObject(intentParams);
   Gmail.Users.Settings.updateVacation({
     enableAutoReply: true,
-    responseSubject: REASON[obj.reason],
+    responseSubject: REASON[intentParams.reason],
     responseBodyHtml: "I'm out of the office between " + dateRangeToString(dates) + ".<br><br><i>Created by Attendance Bot!</i>",
     restrictToContacts: true,
     restrictToDomain: true,
     startTime: dates.startDate.getTime(),
     endTime: dates.endDate.getTime()
   }, 'me');
-  var message = "Added "+REASON[obj.reason]+" to Gmail for " + dateRangeToString(dates)
+  var message = "Added "+REASON[intentParams.reason]+" to Gmail for " + dateRangeToString(dates)
   return message
 }
 
 /**
  * Places an all-day meeting on the user's Calendar.
- * @param {object} entities detected by Dialogflow agent
+ * @param {object} intentParams detected by Dialogflow agent
+ * @return {string} message
  */
-function blockOutCalendar(entities) {
-  
-  var obj = convertKeyValuesToObject(entities);
-  var dates = calcDateObject(obj);
-  if (obj.reason == 'lunch' || obj.reason == 'outofoffice'){
-    CalendarApp.createEvent(REASON[obj.reason], dates.startDate, dates.endDate);
+function blockOutCalendar(intentParams) {
+  var dates = calcDateObject(intentParams);
+  var options = {description:"I'm out of the office between " + dateRangeToString(dates) + ".<br><br><i>Created by Attendance Bot!</i>"}
+  if (intentParams.reason == 'lunch' || intentParams.reason == 'outofoffice'){
+    CalendarApp.createEvent(REASON[intentParams.reason], dates.startDate, dates.endDate, options);
   } else {
-    CalendarApp.createAllDayEvent(REASON[obj.reason], dates.startDate, dates.endDate);
+    CalendarApp.createAllDayEvent(REASON[intentParams.reason], dates.startDate, dates.endDate, options);
   }
-  var message = "Added "+REASON[obj.reason]+" to Calendar for " + dateRangeToString(dates);
-  return message
+  var message = "Added "+REASON[intentParams.reason]+" to Calendar for " + dateRangeToString(dates);
+  return message;
 }
