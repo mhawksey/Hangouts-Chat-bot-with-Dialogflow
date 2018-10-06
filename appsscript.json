@@ -1,0 +1,22 @@
+{
+  "timeZone": "Europe/London",
+  "dependencies": {
+    "enabledAdvancedServices": [{
+      "userSymbol": "Gmail",
+      "serviceId": "gmail",
+      "version": "v1"
+    }],
+    "libraries": [{
+      "userSymbol": "Dialogflow",
+      "libraryId": "1G621Wm91ATQwuKtETmIr0H39UeqSXEBofL7m2AXwEkm3UypYmOuWKdCx",
+      "version": "1"
+    }, {
+      "userSymbol": "cGoa",
+      "libraryId": "1v_l4xN3ICa0lAW315NQEzAHPSoNiFdWHsMEwj2qA5t9cgZ5VWci2Qxv2",
+      "version": "30"
+    }]
+  },
+  "exceptionLogging": "STACKDRIVER",
+  "chat": {
+  }
+}
