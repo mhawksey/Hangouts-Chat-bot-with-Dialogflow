@@ -115,11 +115,12 @@ function createCardResponse(widgets) {
   };
 }
 
+// new REASONS object that has options for text title, inline text and icons 
 var REASON = {
-  'vacation': 'Annual leave',
-  'sick': 'Off sick',
-  'lunch': 'Lunch',
-  'outofoffice': 'Out of office'
+  'vacation': {title: 'Annual leave', inlineText: 'annual leave', imageUrl:  'https://goo.gl/EbgHuc' }, // Spa material icon
+  'sick': {title: 'Off sick', inlineText: 'sick leave', imageUrl: 'https://goo.gl/mnZ37b'}, // Hospital material icon
+  'lunch': {title: 'Lunch', inlineText: 'a lunch break', imageUrl: 'https://goo.gl/zEhek7'}, // Dining material icon
+  'outofoffice': {title: 'Out of office', inlineText: 'an out-of-office', imageUrl: 'https://goo.gl/aXtqPZ'} // Event busy material icon 
 };
 
 /**
@@ -148,7 +149,7 @@ function onMessage(event) {
       intentParams.reason = idx;
       return {
         textButton: {
-          text: 'Set ' + REASON[idx],
+          text: 'Set ' + REASON[idx].title,
           onClick: {
             action: {
               actionMethodName: 'reasonButtons',
@@ -176,43 +177,22 @@ function onMessage(event) {
  * @return {object} JSON-formatted response
  */
 function createAddSetWidget(name, reason, intentParams) {
-  // if we have a reason adjust the image in the
-  // header sent in response
-  var pretty_reason = '';
-  switch (reason) {
-    case 'sick':
-      // Hospital material icon
-      HEADER.header.imageUrl = 'https://goo.gl/mnZ37b';
-      pretty_reason = 'sick leave';
-      
-      break;
-    case 'vacation':
-      // Spa material icon
-      HEADER.header.imageUrl = 'https://goo.gl/EbgHuc';
-      pretty_reason = 'annual leave';
-      break;
-    case 'lunch':
-      // Dining material icon
-      HEADER.header.imageUrl = 'https://goo.gl/zEhek7';
-      pretty_reason = 'a lunch break';
-      break;
-    case 'outofoffice':
-      // Event busy material icon
-      HEADER.header.imageUrl = 'https://goo.gl/aXtqPZ';
-      pretty_reason = 'an out-of-office';
-      break;
-  }
-  HEADER.header.subtitle = 'Log your ' + pretty_reason;
+  // adjust the image and card subtitle based on reason
+  HEADER.header.imageUrl = REASON[reason].imageUrl;
+  HEADER.header.subtitle = 'Log your ' + REASON[reason].inlineText;
   
+  // extract date objects from intent parameters returned by Dialogflow agent
   var dates = calcDateObject(intentParams);
+  
+  // build the Gmail/Calendar widget
   var widgets = [{
     textParagraph: {
-      text: 'Hello, ' + name + '.<br/>It looks like you want to add ' + pretty_reason + ' ' + dateRangeToString(dates) + '?'
+      text: 'Hello, ' + name + '.<br/>It looks like you want to add ' + REASON[reason].inlineText + ' ' + dateRangeToString(dates) + '?'
     }
   }, {
     buttons: [{
       textButton: {
-        text: 'Set ' + pretty_reason + ' in Gmail',
+        text: 'Set ' + REASON[reason].inlineText + ' in Gmail',
         onClick: {
           action: {
             actionMethodName: 'turnOnAutoResponder',
@@ -222,7 +202,7 @@ function createAddSetWidget(name, reason, intentParams) {
       }
     }, {
       textButton: {
-        text: 'Add ' + pretty_reason + ' in Calendar',
+        text: 'Add ' + REASON[reason].inlineText + ' in Calendar',
         onClick: {
           action: {
             actionMethodName: 'blockOutCalendar',
@@ -232,7 +212,7 @@ function createAddSetWidget(name, reason, intentParams) {
       }
     }]
   }];
-  return widgets
+  return widgets;
 }
 
 /**
@@ -260,7 +240,7 @@ function calcDateObject(entities){
   if (entities['date-period']){
     dates.startDate = new Date(entities['date-period'].startDate);
     dates.endDate = new Date(entities['date-period'].endDate);
-    return dates
+    return dates;
   } 
   // if no date period construct one
   if (entities['date']){
@@ -283,7 +263,6 @@ function calcDateObject(entities){
     dates.endDate = new Date(dates.startDate.getTime() + 30*60000);
   }
   if (entities['duration']){
-    entities['duration'] = JSON.parse(entities['duration']);
     switch (entities['duration'].unit){
       case 'mo':
         dates.endDate = new Date(new Date().setMonth(dates.startDate.getMonth()+entities['duration'].amount));
@@ -305,7 +284,7 @@ function calcDateObject(entities){
         break;
     }
   }
-  return dates
+  return dates;
 }
 
 /**
@@ -323,12 +302,12 @@ function onCardClick(event) {
   } else if (event.action.actionMethodName == 'blockOutCalendar') {
     return { text: blockOutCalendar(intentParams)};
   } else if (event.action.actionMethodName == 'reasonButtons') {
-    // handling are 'reason' buttons
-    var reason = intentParams.reason;
-    var widgets = createAddSetWidget(event.user.displayName, reason, intentParams);
+    // now we know the reason we can show the Gmail/Calendar card which includes existing parameters
+    // returned from the Dialogflow agent
+    var widgets = createAddSetWidget(event.user.displayName, intentParams.reason, intentParams);
     return createCardResponse(widgets);
   }
-  return { text: message }
+  return { text: message };
 }
   
 
@@ -339,17 +318,19 @@ function onCardClick(event) {
  */
 function turnOnAutoResponder(intentParams) {
   var dates = calcDateObject(intentParams);
+  var title = REASON[intentParams.reason].title;
+  var inlineText = REASON[intentParams.reason].inlineText;
   Gmail.Users.Settings.updateVacation({
     enableAutoReply: true,
-    responseSubject: REASON[intentParams.reason],
-    responseBodyHtml: "I'm out of the office between " + dateRangeToString(dates) + ".<br><br><i>Created by Attendance Bot!</i>",
+    responseSubject: title,
+    responseBodyHtml: "I'm on " + inlineText + " between " + dateRangeToString(dates) + ".<br><br><i>Created by Attendance Bot!</i>",
     restrictToContacts: true,
     restrictToDomain: true,
     startTime: dates.startDate.getTime(),
     endTime: dates.endDate.getTime()
   }, 'me');
-  var message = "Added "+REASON[intentParams.reason]+" to Gmail for " + dateRangeToString(dates)
-  return message
+  var message = "Added " + inlineText + " to Gmail for " + dateRangeToString(dates);
+  return message;
 }
 
 /**
@@ -359,12 +340,14 @@ function turnOnAutoResponder(intentParams) {
  */
 function blockOutCalendar(intentParams) {
   var dates = calcDateObject(intentParams);
-  var options = {description:"I'm out of the office between " + dateRangeToString(dates) + ".<br><br><i>Created by Attendance Bot!</i>"}
+  var title = REASON[intentParams.reason].title;
+  var inlineText = REASON[intentParams.reason].inlineText;
+  var options = {description:"I'm  on " + inlineText + " between " + dateRangeToString(dates) + ".<br><br><i>Created by Attendance Bot!</i>"};
   if (intentParams.reason == 'lunch' || intentParams.reason == 'outofoffice'){
-    CalendarApp.createEvent(REASON[intentParams.reason], dates.startDate, dates.endDate, options);
+    CalendarApp.createEvent(title, dates.startDate, dates.endDate, options);
   } else {
-    CalendarApp.createAllDayEvent(REASON[intentParams.reason], dates.startDate, dates.endDate, options);
+    CalendarApp.createAllDayEvent(title, dates.startDate, dates.endDate, options);
   }
-  var message = "Added "+REASON[intentParams.reason]+" to Calendar for " + dateRangeToString(dates);
+  var message = "Added " + inlineText + " to Calendar for " + dateRangeToString(dates);
   return message;
 }
