@@ -216,16 +216,68 @@ function createAddSetWidget(name, reason, intentParams) {
 }
 
 /**
- * Returns a date range string.
- * @param {object} dates to turn into human readable format
- * @return {string} of date range
+ * Responds to a CARD_CLICKED event triggered in Hangouts Chat.
+ * @param {object} event the event object from Hangouts Chat
+ * @return {object} JSON-formatted response
+ * @see https://developers.google.com/hangouts/chat/reference/message-formats/events
  */
-function dateRangeToString(dates){
-  var tz = Session.getScriptTimeZone();
-  var format = "EEE d MMM h:mm a";
-  return Utilities.formatDate(dates.startDate, tz, format) + " until "+ 
-         Utilities.formatDate(dates.endDate, tz, format);
+function onCardClick(event) {
+  console.info(event);
+  var intentParams = JSON.parse(event.action.parameters[0].value)
+  var message = "I'm sorry; I'm not sure which button you clicked.";
+  if (event.action.actionMethodName == 'turnOnAutoResponder') {
+    return { text: turnOnAutoResponder(intentParams)};
+  } else if (event.action.actionMethodName == 'blockOutCalendar') {
+    return { text: blockOutCalendar(intentParams)};
+  } else if (event.action.actionMethodName == 'reasonButtons') {
+    // now we know the reason we can show the Gmail/Calendar card which includes existing parameters
+    // returned from the Dialogflow agent
+    var widgets = createAddSetWidget(event.user.displayName, intentParams.reason, intentParams);
+    return createCardResponse(widgets);
+  }
+  return { text: message };
+}
+  
 
+/**
+ * Turns on the user's vacation response for today in Gmail.
+ * @param {object} intentParams detected by Dialogflow agent
+ * @return {string} message
+ */
+function turnOnAutoResponder(intentParams) {
+  var dates = calcDateObject(intentParams);
+  var title = REASON[intentParams.reason].title;
+  var inlineText = REASON[intentParams.reason].inlineText;
+  Gmail.Users.Settings.updateVacation({
+    enableAutoReply: true,
+    responseSubject: title,
+    responseBodyHtml: "I'm on " + inlineText + " between " + dateRangeToString(dates) + ".<br><br><i>Created by Attendance Bot!</i>",
+    restrictToContacts: true,
+    restrictToDomain: true,
+    startTime: dates.startDate.getTime(),
+    endTime: dates.endDate.getTime()
+  }, 'me');
+  var message = "Added " + inlineText + " to Gmail for " + dateRangeToString(dates);
+  return message;
+}
+
+/**
+ * Places an all-day meeting on the user's Calendar.
+ * @param {object} intentParams detected by Dialogflow agent
+ * @return {string} message
+ */
+function blockOutCalendar(intentParams) {
+  var dates = calcDateObject(intentParams);
+  var title = REASON[intentParams.reason].title;
+  var inlineText = REASON[intentParams.reason].inlineText;
+  var options = {description:"I'm  on" + inlineText + " between " + dateRangeToString(dates) + ".<br><br><i>Created by Attendance Bot!</i>"};
+  if (intentParams.reason == 'lunch' || intentParams.reason == 'outofoffice'){
+    CalendarApp.createEvent(title, dates.startDate, dates.endDate, options);
+  } else {
+    CalendarApp.createAllDayEvent(title, dates.startDate, dates.endDate, options);
+  }
+  var message = "Added " + inlineText + " to Calendar for " + dateRangeToString(dates);
+  return message;
 }
 
 var ONE_DAY_MILLIS = 24 * 60 * 60 * 1000;
@@ -288,66 +340,14 @@ function calcDateObject(entities){
 }
 
 /**
- * Responds to a CARD_CLICKED event triggered in Hangouts Chat.
- * @param {object} event the event object from Hangouts Chat
- * @return {object} JSON-formatted response
- * @see https://developers.google.com/hangouts/chat/reference/message-formats/events
+ * Returns a date range string.
+ * @param {object} dates to turn into human readable format
+ * @return {string} of date range
  */
-function onCardClick(event) {
-  console.info(event);
-  var intentParams = JSON.parse(event.action.parameters[0].value)
-  var message = "I'm sorry; I'm not sure which button you clicked.";
-  if (event.action.actionMethodName == 'turnOnAutoResponder') {
-    return { text: turnOnAutoResponder(intentParams)};
-  } else if (event.action.actionMethodName == 'blockOutCalendar') {
-    return { text: blockOutCalendar(intentParams)};
-  } else if (event.action.actionMethodName == 'reasonButtons') {
-    // now we know the reason we can show the Gmail/Calendar card which includes existing parameters
-    // returned from the Dialogflow agent
-    var widgets = createAddSetWidget(event.user.displayName, intentParams.reason, intentParams);
-    return createCardResponse(widgets);
-  }
-  return { text: message };
-}
-  
+function dateRangeToString(dates){
+  var tz = Session.getScriptTimeZone();
+  var format = "EEE d MMM h:mm a";
+  return Utilities.formatDate(dates.startDate, tz, format) + " until "+ 
+         Utilities.formatDate(dates.endDate, tz, format);
 
-/**
- * Turns on the user's vacation response for today in Gmail.
- * @param {object} intentParams detected by Dialogflow agent
- * @return {string} message
- */
-function turnOnAutoResponder(intentParams) {
-  var dates = calcDateObject(intentParams);
-  var title = REASON[intentParams.reason].title;
-  var inlineText = REASON[intentParams.reason].inlineText;
-  Gmail.Users.Settings.updateVacation({
-    enableAutoReply: true,
-    responseSubject: title,
-    responseBodyHtml: "I'm on " + inlineText + " between " + dateRangeToString(dates) + ".<br><br><i>Created by Attendance Bot!</i>",
-    restrictToContacts: true,
-    restrictToDomain: true,
-    startTime: dates.startDate.getTime(),
-    endTime: dates.endDate.getTime()
-  }, 'me');
-  var message = "Added " + inlineText + " to Gmail for " + dateRangeToString(dates);
-  return message;
-}
-
-/**
- * Places an all-day meeting on the user's Calendar.
- * @param {object} intentParams detected by Dialogflow agent
- * @return {string} message
- */
-function blockOutCalendar(intentParams) {
-  var dates = calcDateObject(intentParams);
-  var title = REASON[intentParams.reason].title;
-  var inlineText = REASON[intentParams.reason].inlineText;
-  var options = {description:"I'm  on " + inlineText + " between " + dateRangeToString(dates) + ".<br><br><i>Created by Attendance Bot!</i>"};
-  if (intentParams.reason == 'lunch' || intentParams.reason == 'outofoffice'){
-    CalendarApp.createEvent(title, dates.startDate, dates.endDate, options);
-  } else {
-    CalendarApp.createAllDayEvent(title, dates.startDate, dates.endDate, options);
-  }
-  var message = "Added " + inlineText + " to Calendar for " + dateRangeToString(dates);
-  return message;
 }
