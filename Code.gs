@@ -1,5 +1,5 @@
 function oneOffSetting() { 
-  var file = DriveApp.getFilesByName('attendance-bot-7a089-869c739fce81.json').next();
+  var file = DriveApp.getFilesByName('NAME_OF_YOUR_JSON_KEY_FILE.json').next();
   
   // used by all using this script
   var propertyStore = PropertiesService.getScriptProperties();
@@ -28,7 +28,7 @@ function detectMessageIntent(message, optLang){
   }
   // set our token 
   Dialogflow.setTokenService(function(){ return goa.getToken(); } );
-  
+
   /* Preparing the Dialogflow.projects.agent.sessions.detectIntent call 
    * https://cloud.google.com/dialogflow-enterprise/docs/reference/rest/v2/projects.agent.sessions/detectIntent
    *
@@ -53,7 +53,7 @@ function detectMessageIntent(message, optLang){
   * In this example I'm using for the <Session ID>
   */
   // your Dialogflow project ID
-  var PROJECT_ID = 'attendance-bot-7a089'; 
+  var PROJECT_ID = 'YOUR_DIALOGFLOW_PROJECT_ID'; // <- your Dialogflow proejct ID
   
   // using an URI encoded ActiveUserKey (non identifiable) https://developers.google.com/apps-script/reference/base/session#getTemporaryActiveUserKey()
   var SESSION_ID = encodeURIComponent(Session.getTemporaryActiveUserKey()); 
