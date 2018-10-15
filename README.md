@@ -20,6 +20,19 @@ In this example if the message text had ‘holiday’ instead of ‘vacation’ 
 
 To show you the basics of Dialogflow in Google Apps Script I’ll extend the Hangouts Chat bot codelab to extract and use the intent of the user’s message. As part of this I’ll show how you can extract information from a message like when an event should occur and duration. All of this will also be wrapped in a conversational interface, so if the user forgets to include some information they will be prompted to provide more details.
 
+***Table of Contents***
+  * [What you will learn](#what-you-will-learn)
+  * [What you'll need](#what-you-ll-need)
+  * [Getting the sample code](#getting-the-sample-code)
+    + [Cloning the GitHub repository](#cloning-the-github-repository)
+  * [Setting up our Dialogflow agent](#setting-up-our-dialogflow-agent)
+    + [Create and setup a new **Entity** for `reason`](#create-and-setup-a-new-entity-for--reason-)
+    + [Create an **Intents** called attendance and add some **Training Phrases**](#create-an---intents---called-attendance-and-add-some---training-phrases--)
+    + [Make reason a required parameter](#make-reason-a-required-parameter)
+  * [Setting up Google Apps Script for interaction with Dialogflow](#setting-up-google-apps-script-for-interaction-with-dialogflow)
+  * [Using Dialogflow to respond to message events](#using-dialogflow-to-respond-to-message-events)
+  * [Summary](#summary)
+
 ## What you will learn
 
 * How to setup a basic Dialogflow Agent
@@ -64,7 +77,7 @@ Dialogflow have a [build your first agent guide](https://dialogflow.com/docs/get
 
 If you want to skip these steps locate the .zip in the code sample and once you have created a new Dialogflow agent you can import a pre-build agent in the agent settings page.
 
-### Create and setup a new Entity for `reason`
+### Create and setup a new **Entity** for `reason`
 
 From the **Entity** menu on the left hand side create a new entity called `reason` and added the reference values `vacation`, `sick`, `lunch`, and `outofoffice`. For each reference value you can add synonyms which allows our agent to interpret alternative ways of saying things like vacation:  
 
