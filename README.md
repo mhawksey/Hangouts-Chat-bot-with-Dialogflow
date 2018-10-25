@@ -69,13 +69,15 @@ To clone the GitHub repository for this codelab, run the following command:
 
 Dialogflow have a [build your first agent guide](https://dialogflow.com/docs/getting-started), which will get you setup with an account (there is a free standard edition you can use). After you have created your agent, I called mine ‘Attendance-Bot’, I recommend the following steps:
 
+> If you want to skip these steps [download the .zip in the code sample](https://github.com/mhawksey/Hangouts-Chat-bot-with-Dialogflow/blob/master/assets/Attendance-Bot.zip) and imported to your Dialogflow agent.
+
 1. Create and setup a new **Entity** for reason
 
 2. Create an **Intents** called attendance and add some **Training Phrases**
 
 3. Make the reason a required parameter
 
-If you want to skip these steps locate the .zip in the code sample and once you have created a new Dialogflow agent you can import a pre-build agent in the agent settings page.
+
 
 ### Create and setup a new **Entity** for `reason`
 
